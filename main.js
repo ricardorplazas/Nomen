@@ -11,8 +11,18 @@ let mainWindow;
 
 // --- Dependency Checking ---
 const commandExists = (command) => {
+    // When the app is packaged, it doesn't inherit the shell's PATH.
+    // We need to explicitly tell it where to look for Homebrew dependencies.
+    const shellPaths = [
+        '/opt/homebrew/bin',
+        '/usr/local/bin',
+        process.env.PATH
+    ].join(':');
+
     return new Promise((resolve) => {
-        exec(`command -v ${command}`, (error) => resolve(!error));
+        exec(`command -v ${command}`, { env: { ...process.env, PATH: shellPaths } }, (error) => {
+            resolve(!error);
+        });
     });
 };
 
@@ -20,7 +30,9 @@ const checkDependencies = async () => {
     const dependencies = ['gs', 'tesseract', 'pdftotext', 'jq', 'gtimeout', 'exiftool', 'pandoc', 'pdffonts'];
     const missingDependencies = [];
     for (const dep of dependencies) {
-        if (!(await commandExists(dep))) missingDependencies.push(dep);
+        if (!(await commandExists(dep))) {
+            missingDependencies.push(dep);
+        }
     }
     if (missingDependencies.length > 0) {
         dialog.showErrorBox('Missing Dependencies', `Please install the following required tools using Homebrew:\n\nbrew install ${missingDependencies.join(' ')}`);
