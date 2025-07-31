@@ -15,9 +15,10 @@ let selectedPromptId = null;
 
 // --- Functions ---
 const applyTheme = (theme) => {
-    document.body.dataset.theme = theme === 'system' 
+    const effectiveTheme = theme === 'system' 
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') 
         : theme;
+    document.body.dataset.theme = effectiveTheme;
 };
 
 const renderPromptList = () => {
@@ -51,6 +52,15 @@ const populateVersionHistory = (prompt) => {
     }
 };
 
+const clearEditor = () => {
+    selectedPromptId = null;
+    titleInput.value = '';
+    textarea.value = '';
+    populateVersionHistory(null);
+    titleInput.focus();
+    renderPromptList();
+};
+
 const loadPromptIntoEditor = (promptId) => {
     const prompt = prompts.find(p => p.id === promptId);
     if (prompt) {
@@ -59,10 +69,7 @@ const loadPromptIntoEditor = (promptId) => {
         textarea.value = prompt.text;
         populateVersionHistory(prompt);
     } else {
-        selectedPromptId = null;
-        titleInput.value = '';
-        textarea.value = '';
-        populateVersionHistory(null);
+        clearEditor();
     }
     renderPromptList();
 };
@@ -72,16 +79,7 @@ const savePrompts = () => {
 };
 
 // --- Event Listeners ---
-newPromptBtn.addEventListener('click', () => {
-    const newPrompt = {
-        id: `prompt-${Date.now()}`,
-        title: 'New Prompt',
-        text: '',
-        history: ['']
-    };
-    prompts.push(newPrompt);
-    loadPromptIntoEditor(newPrompt.id);
-});
+newPromptBtn.addEventListener('click', clearEditor);
 
 promptList.addEventListener('click', (e) => {
     if (e.target.tagName === 'LI') {
@@ -91,23 +89,40 @@ promptList.addEventListener('click', (e) => {
 });
 
 savePromptBtn.addEventListener('click', () => {
+    const title = titleInput.value.trim();
+    const text = textarea.value.trim();
+    if (!title || !text) {
+        console.error("Title and Text cannot be empty.");
+        return;
+    }
+
     if (selectedPromptId) {
+        // Update existing prompt
         const prompt = prompts.find(p => p.id === selectedPromptId);
         if (prompt) {
-            prompt.title = titleInput.value;
-            const newText = textarea.value;
-            if (newText !== prompt.text) {
-                prompt.text = newText;
+            prompt.title = title;
+            if (text !== prompt.text) {
+                prompt.text = text;
                 if (!prompt.history) prompt.history = [];
-                prompt.history.push(newText);
+                prompt.history.push(text);
                 if (prompt.history.length > 10) {
                     prompt.history.shift();
                 }
             }
-            savePrompts();
-            loadPromptIntoEditor(prompt.id);
         }
+    } else {
+        // Create new prompt
+        const newPrompt = {
+            id: `prompt-${Date.now()}`,
+            title: title,
+            text: text,
+            history: [text]
+        };
+        prompts.push(newPrompt);
+        selectedPromptId = newPrompt.id;
     }
+    savePrompts();
+    loadPromptIntoEditor(selectedPromptId); // Reload to update history and list
 });
 
 deletePromptBtn.addEventListener('click', () => {
@@ -134,6 +149,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     prompts = await window.electronAPI.getPrompts();
     if (prompts && prompts.length > 0) {
         loadPromptIntoEditor(prompts[0].id);
+    } else {
+        clearEditor();
     }
 
     // Get initial theme

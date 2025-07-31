@@ -15,10 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onProcessingComplete: (callback) => ipcRenderer.on('processing-complete', callback),
 
   // --- Sorter Functions ---
-  indexFolder: (data) => ipcRenderer.invoke('index-folder', data),
+  indexFolder: (data) => ipcRenderer.send('index-folder', data),
+  onFolderIndexed: (callback) => ipcRenderer.on('folder-indexed', (event, ...args) => callback(...args)),
+  onIndexingComplete: (callback) => ipcRenderer.on('indexing-complete', (event, ...args) => callback(...args)),
   moveFile: (data) => ipcRenderer.invoke('move-file', data),
   processSorting: (data) => ipcRenderer.send('process-sorting', data),
   onSortSuggestion: (callback) => ipcRenderer.on('sort-suggestion', (event, ...args) => callback(...args)),
+  onSortingComplete: (callback) => ipcRenderer.on('sorting-complete', callback),
 
   // --- Settings & Data ---
   fetchModels: (data) => ipcRenderer.invoke('fetch-models', data),

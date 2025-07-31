@@ -27,6 +27,8 @@ const selectInputFolderBtn = document.getElementById('select-input-folder-btn');
 const indexStatus = document.getElementById('index-status');
 const inputFolderPath = document.getElementById('input-folder-path');
 const sortingQueue = document.getElementById('sorting-queue');
+const sorterFooter = document.getElementById('sorter-footer');
+const clearSortedBtn = document.getElementById('clear-sorted-btn');
 const sorterDepthInput = document.getElementById('sorter-depth-input');
 
 // --- Global State ---
@@ -48,6 +50,7 @@ const switchView = (viewName) => {
 
 // --- Shared Functions ---
 const populatePromptsDropdown = () => {
+    const currentVal = promptSelect.value;
     promptSelect.innerHTML = '';
     prompts.forEach(prompt => {
         const option = document.createElement('option');
@@ -55,8 +58,12 @@ const populatePromptsDropdown = () => {
         option.textContent = prompt.title;
         promptSelect.appendChild(option);
     });
+    if (prompts.find(p => p.id === currentVal)) {
+        promptSelect.value = currentVal;
+    }
 };
 const populateKeysDropdown = () => {
+    const currentVal = apiKeySelect.value;
     apiKeySelect.innerHTML = '';
     apiKeys.forEach(key => {
         const option = document.createElement('option');
@@ -64,6 +71,9 @@ const populateKeysDropdown = () => {
         option.textContent = key.nickname;
         apiKeySelect.appendChild(option);
     });
+    if (apiKeys.find(k => k.id === currentVal)) {
+        apiKeySelect.value = currentVal;
+    }
 };
 const loadPrompts = async () => {
     prompts = await window.electronAPI.getPrompts();
@@ -131,7 +141,7 @@ const renderSortItem = (fileInfo) => {
                     ? `<div class="file-sort-item-header">${fileInfo.fileName}</div><div class="status-sorted">Moved!</div>`
                     : `<div class="file-sort-item-header">${fileInfo.fileName}</div><div class="status-error">Move Failed: ${result.error}</div>`;
             } else {
-                itemDiv.innerHTML = `<div class="file-sort-item-header">${fileInfo.fileName}</div><div>Skipped.</div>`;
+                itemDiv.innerHTML = `<div class="file-sort-item-header">${fileInfo.fileName}</div><div class="status-skipped">Skipped.</div>`;
             }
         });
     });
@@ -192,7 +202,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         sorterDepthInput.value = settings.sorterMaxDepth || 5;
         document.body.dataset.savedTheme = settings.theme || 'system';
         applyTheme(document.body.dataset.savedTheme);
-        await fetchAndDisplayModels();
+        if (apiKeySelect.value) {
+            await fetchAndDisplayModels();
+        }
         modelSelect.value = settings.model || '';
         promptSelect.value = settings.selectedPrompt || '';
     } else {
@@ -240,19 +252,32 @@ selectTargetFolderBtn.addEventListener('click', async () => {
         indexStatus.textContent = 'Indexing...';
         selectInputFolderBtn.disabled = true;
         const maxDepth = parseInt(sorterDepthInput.value, 10) || 5;
-        folderIndex = await window.electronAPI.indexFolder({ folderPath, maxDepth });
-        indexStatus.textContent = `Indexed ${folderIndex.length} subfolders.`;
-        selectInputFolderBtn.disabled = false;
+        window.electronAPI.indexFolder({ folderPath, maxDepth });
     }
 });
+
 selectInputFolderBtn.addEventListener('click', async () => {
     const folderPath = await window.electronAPI.selectFolder();
     if (folderPath) {
         inputFolderPath.textContent = `Input: ${folderPath.split(/[\\/]/).pop()}`;
         sortingQueue.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-secondary);">Analyzing files...</div>';
+        sorterFooter.style.display = 'none';
         window.electronAPI.processSorting({ inputPath: folderPath, folderIndex: folderIndex });
     }
 });
+
+clearSortedBtn.addEventListener('click', () => {
+    document.querySelectorAll('.file-sort-item').forEach(item => {
+        if (item.querySelector('.status-sorted') || item.querySelector('.status-skipped')) {
+            item.remove();
+        }
+    });
+    // If no items are left, hide the footer
+    if (sortingQueue.childElementCount === 0) {
+        sorterFooter.style.display = 'none';
+    }
+});
+
 [providerSelect, modelSelect, apiKeySelect, outputFolderInput, archiveCheckbox, convertPdfaCheckbox, promptSelect, sorterDepthInput].forEach(el => {
     el.addEventListener('change', saveCurrentSettings);
 });
@@ -283,8 +308,24 @@ window.electronAPI.onSortSuggestion((fileInfo) => {
     }
     renderSortItem(fileInfo);
 });
+
+window.electronAPI.onFolderIndexed((data) => {
+    indexStatus.textContent = `Indexing... Found ${data.count} folders.`;
+});
+
+window.electronAPI.onIndexingComplete((data) => {
+    folderIndex = data.allFolders;
+    indexStatus.textContent = `Indexed ${data.total} subfolders.`;
+    selectInputFolderBtn.disabled = false;
+});
+
+window.electronAPI.onSortingComplete(() => {
+    sorterFooter.style.display = 'flex';
+});
+
 window.electronAPI.onPromptsUpdated(loadPrompts);
 window.electronAPI.onKeysUpdated(loadKeys);
+
 window.electronAPI.onThemeUpdated((theme) => {
     document.body.dataset.savedTheme = theme;
     applyTheme(theme);

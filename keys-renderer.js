@@ -15,9 +15,10 @@ let selectedKeyId = null;
 
 // --- Functions ---
 const applyTheme = (theme) => {
-    document.body.dataset.theme = theme === 'system' 
+    const effectiveTheme = theme === 'system' 
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') 
         : theme;
+    document.body.dataset.theme = effectiveTheme;
 };
 
 const renderKeyList = () => {
@@ -33,6 +34,15 @@ const renderKeyList = () => {
     });
 };
 
+const clearEditor = () => {
+    selectedKeyId = null;
+    nicknameInput.value = '';
+    providerSelect.value = 'gemini';
+    keyValueInput.value = '';
+    nicknameInput.focus();
+    renderKeyList();
+};
+
 const loadKeyIntoEditor = (keyId) => {
     const key = apiKeys.find(k => k.id === keyId);
     if (key) {
@@ -41,10 +51,7 @@ const loadKeyIntoEditor = (keyId) => {
         providerSelect.value = key.provider;
         keyValueInput.value = key.key;
     } else {
-        selectedKeyId = null;
-        nicknameInput.value = '';
-        providerSelect.value = 'gemini';
-        keyValueInput.value = '';
+        clearEditor();
     }
     renderKeyList();
 };
@@ -54,16 +61,7 @@ const saveKeys = () => {
 };
 
 // --- Event Listeners ---
-newKeyBtn.addEventListener('click', () => {
-    const newKey = {
-        id: `key-${Date.now()}`,
-        nickname: 'New API Key',
-        provider: 'gemini',
-        key: ''
-    };
-    apiKeys.push(newKey);
-    loadKeyIntoEditor(newKey.id);
-});
+newKeyBtn.addEventListener('click', clearEditor);
 
 keyList.addEventListener('click', (e) => {
     if (e.target.tagName === 'LI') {
@@ -73,20 +71,39 @@ keyList.addEventListener('click', (e) => {
 });
 
 saveKeyBtn.addEventListener('click', () => {
-    if (selectedKeyId) {
-        const key = apiKeys.find(k => k.id === selectedKeyId);
-        if (key) {
-            key.nickname = nicknameInput.value;
-            key.provider = providerSelect.value;
-            key.key = keyValueInput.value;
-            saveKeys();
-            renderKeyList();
-        }
+    const nickname = nicknameInput.value.trim();
+    const key = keyValueInput.value.trim();
+    if (!nickname || !key) {
+        // Optionally show an error to the user
+        console.error("Nickname and Key cannot be empty.");
+        return;
     }
+
+    if (selectedKeyId) {
+        // Update existing key
+        const existingKey = apiKeys.find(k => k.id === selectedKeyId);
+        if (existingKey) {
+            existingKey.nickname = nickname;
+            existingKey.provider = providerSelect.value;
+            existingKey.key = key;
+        }
+    } else {
+        // Create new key
+        const newKey = {
+            id: `key-${Date.now()}`,
+            nickname: nickname,
+            provider: providerSelect.value,
+            key: key
+        };
+        apiKeys.push(newKey);
+        selectedKeyId = newKey.id;
+    }
+    saveKeys();
+    renderKeyList();
 });
 
 deleteKeyBtn.addEventListener('click', () => {
-    if (selectedKeyId && apiKeys.length > 0) {
+    if (selectedKeyId) {
         apiKeys = apiKeys.filter(k => k.id !== selectedKeyId);
         saveKeys();
         loadKeyIntoEditor(apiKeys.length > 0 ? apiKeys[0].id : null);
@@ -99,6 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     apiKeys = await window.electronAPI.getKeys();
     if (apiKeys && apiKeys.length > 0) {
         loadKeyIntoEditor(apiKeys[0].id);
+    } else {
+        clearEditor();
     }
     
     // Get initial theme

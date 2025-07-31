@@ -10,23 +10,38 @@
 
         /* --- Theme Variables --- */
         body, body[data-theme='dark'] {
-            --bg-color: #2e2e2e; --sidebar-bg: rgba(30, 30, 30, 0.75); --content-bg: #3c3c3c;
-            --border-color: #4a4a4a; --text-primary: #ffffff; --text-secondary: #a0a0a0;
-            --accent-color: #5c9bff; --error-color: #ff6b6b; --success-color: #45d66d;
-            --control-bg: rgba(255, 255, 255, 0.1);
+            --bg-color: rgba(30, 30, 30, 0.7);
+            --sidebar-bg: rgba(40, 40, 40, 0.5);
+            --content-bg: rgba(50, 50, 50, 0.6);
+            --control-bg: rgba(60, 60, 60, 0.8);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-color: #5c9bff;
+            --error-color: #ff6b6b;
+            --success-color: #45d66d;
+            --shadow-color: rgba(0, 0, 0, 0.2);
         }
         body[data-theme='light'] {
-            --bg-color: #f0f0f0; --sidebar-bg: rgba(247, 247, 247, 0.8); --content-bg: #ffffff;
-            --border-color: #e0e0e0; --text-primary: #000000; --text-secondary: #666666;
-            --accent-color: #007aff; --error-color: #ff3b30; --success-color: #34c759;
-            --control-bg: #f0f0f0;
+            --bg-color: rgba(242, 242, 247, 0.7);
+            --sidebar-bg: rgba(255, 255, 255, 0.5);
+            --content-bg: rgba(255, 255, 255, 0.6);
+            --control-bg: rgba(230, 230, 230, 0.8);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --accent-color: #007aff;
+            --error-color: #ff3b30;
+            --success-color: #34c759;
+            --shadow-color: rgba(0, 0, 0, 0.1);
         }
 
         /* --- Base Layout --- */
         body {
-            font-family: var(--font-family); margin: 0; background-color: var(--bg-color);
+            font-family: var(--font-family); margin: 0;
             color: var(--text-primary); display: flex; height: 100vh; overflow: hidden;
             -webkit-font-smoothing: antialiased;
+            background-color: var(--bg-color);
         }
         #app-container { width: 100%; height: 100%; display: flex; }
         #app-sidebar {
@@ -34,6 +49,7 @@
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border-right: 1px solid var(--border-color); box-sizing: border-box;
             display: flex; flex-direction: column;
+            flex-shrink: 0; /* Prevent sidebar from shrinking */
         }
         #main-content { flex-grow: 1; display: flex; flex-direction: column; }
         #sidebar-draggable-area, #main-draggable-area { height: 40px; width: 100%; -webkit-app-region: drag; flex-shrink: 0; }
@@ -42,14 +58,11 @@
 
         /* --- Tab Navigation & Theme Button --- */
         #nav-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 10px 0 20px;
-            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 10px 0 20px; border-bottom: 1px solid var(--border-color);
         }
         #app-mode-nav { display: flex; gap: 10px; }
-        .nav-tab { padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-secondary); font-weight: 500; }
+        .nav-tab { padding: 8px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.9em; transition: all 0.2s ease; }
         .nav-tab.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
         #theme-btn { background: none; border: none; cursor: pointer; padding: 4px; width: 30px; height: 30px; }
         #theme-btn svg { width: 100%; height: 100%; fill: var(--text-secondary); }
@@ -57,32 +70,39 @@
         /* --- Settings --- */
         .settings-view { padding: 20px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; }
         .settings-group { display: flex; flex-direction: column; gap: 10px; }
-        .settings-group-header { display: flex; justify-content: space-between; align-items: center; }
         .settings-group label { font-weight: 600; font-size: 0.8em; color: var(--text-secondary); text-transform: uppercase; padding-left: 4px; }
         .settings-group input, .settings-group select, .settings-group button {
             width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px;
             background-color: var(--control-bg); color: var(--text-primary); font-size: 0.9em; box-sizing: border-box;
+            box-shadow: 0 1px 2px var(--shadow-color);
         }
         .settings-group button { background-color: var(--accent-color); border: none; cursor: pointer; font-weight: 500; }
         .archive-option { display: flex; flex-direction: column; gap: 4px; }
         .archive-option-row { display: flex; align-items: center; gap: 8px; }
-        .archive-option-row input[type="checkbox"] { width: 16px; height: 16px; }
+        .archive-option-row input[type="checkbox"] { width: 16px; height: 16px; box-shadow: none; }
         .archive-option-row label { text-transform: none; font-weight: normal; color: var(--text-primary); }
         .comment { font-size: 0.8em; color: var(--text-secondary); padding-left: 4px; margin-top: -5px; }
 
         /* --- Main Content Views --- */
-        .main-view { display: none; flex-grow: 1; flex-direction: column; }
-        .main-view.active { display: flex; }
+        .main-view { 
+            display: none; 
+            flex-grow: 1; 
+            flex-direction: column; 
+            min-height: 0;
+        }
+        .main-view.active { 
+            display: flex; 
+        }
         
         /* Renamer View */
-        #drop-zone { height: 200px; border: 2px dashed var(--border-color); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-secondary); transition: background-color 0.2s, border-color 0.2s; cursor: pointer; margin-bottom: 20px; }
-        #drop-zone.drag-over { background-color: var(--drop-zone-bg); border-color: var(--drop-zone-border); }
+        #drop-zone { height: 200px; border: 2px dashed var(--border-color); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-secondary); transition: background-color 0.2s, border-color 0.2s; cursor: pointer; margin-bottom: 20px; background-color: var(--content-bg); }
+        #drop-zone.drag-over { background-color: var(--accent-color); border-color: var(--accent-color); color: white; }
         #drop-zone h2 { margin: 0; font-size: 1.5em; font-weight: 600; }
-        #status-view-container { flex-grow: 1; display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
-        #status-view-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color); background-color: var(--content-bg); }
+        #status-view-container { flex-grow: 1; display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background-color: var(--content-bg); }
+        #status-view-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
         #status-view-header h3 { margin: 0; font-size: 1em; font-weight: 600; }
         #clear-finished-btn { padding: 4px 12px; font-size: 0.8em; border: 1px solid var(--border-color); border-radius: 6px; background-color: var(--control-bg); color: var(--text-secondary); cursor: pointer; }
-        #status-view { flex-grow: 1; overflow-y: auto; background-color: var(--content-bg); }
+        #status-view { flex-grow: 1; overflow-y: auto; }
         .file-item { display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border-color); }
         .file-item:last-child { border-bottom: none; }
         .file-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
@@ -92,13 +112,68 @@
         .status-error { color: var(--error-color); }
 
         /* Sorter View */
-        #sorter-view { gap: 20px; }
-        .folder-selection-group { display: flex; gap: 20px; align-items: flex-start; }
-        .folder-box { flex: 1; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--content-bg); }
-        .folder-box h3 { margin-top: 0; font-size: 1.1em; }
-        .folder-box button { width: 100%; }
+        #sorter-view { 
+            gap: 20px;
+            height: 100%;
+        }
+        .folder-selection-group { 
+            display: flex; 
+            flex-direction: column; /* Changed to column */
+            gap: 15px; 
+            flex-shrink: 0;
+        }
+        .folder-box { 
+            padding: 15px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            background-color: var(--content-bg); 
+        }
+        .folder-box h3 { margin-top: 0; margin-bottom: 5px; font-size: 1.1em; }
+        .folder-box p { margin: 0 0 10px 0; font-size: 0.9em; color: var(--text-secondary); }
+        .folder-box button {
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--accent-color);
+            color: var(--text-primary);
+            font-size: 0.9em;
+            box-sizing: border-box;
+            box-shadow: 0 1px 2px var(--shadow-color);
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .folder-box button:disabled {
+            background-color: var(--control-bg);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
         #index-status, #input-folder-path { font-size: 0.85em; color: var(--text-secondary); margin-top: 10px; min-height: 1.2em; }
-        #sorting-queue { flex-grow: 1; border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto; background-color: var(--content-bg); }
+        #sorting-queue-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--content-bg);
+            min-height: 0;
+        }
+        #sorting-queue { 
+            flex-grow: 1;
+            overflow-y: auto; 
+        }
+        #sorter-footer {
+            padding: 10px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #sorter-footer-message {
+            font-size: 0.9em;
+            font-weight: 500;
+            color: var(--success-color);
+        }
         .file-sort-item { padding: 15px; border-bottom: 1px solid var(--border-color); }
         .file-sort-item:last-child { border-bottom: none; }
         .file-sort-item-header { font-weight: bold; margin-bottom: 10px; }
@@ -106,10 +181,10 @@
         .suggestion-btn { text-align: left; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--control-bg); color: var(--text-primary); cursor: pointer; }
         .suggestion-btn.none { color: var(--text-secondary); }
         .suggestion-btn:hover { border-color: var(--accent-color); }
-        .status-sorted { color: var(--success-color); font-weight: bold; }
+        .status-sorted, .status-skipped { color: var(--success-color); font-weight: bold; }
     </style>
 </head>
-<body data-theme="dark">
+<body>
     <div id="app-container">
         <!-- Sidebar -->
         <aside id="app-sidebar">
@@ -216,7 +291,13 @@
                             <div id="input-folder-path"></div>
                         </div>
                     </div>
-                    <div id="sorting-queue"></div>
+                    <div id="sorting-queue-container">
+                        <div id="sorting-queue"></div>
+                        <div id="sorter-footer" style="display: none;">
+                            <span id="sorter-footer-message">All files processed.</span>
+                            <button id="clear-sorted-btn">Clear Completed</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

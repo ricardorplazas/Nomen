@@ -32,7 +32,7 @@ const checkDependencies = async () => {
 const createMainWindow = () => {
   mainWindow = new BrowserWindow({
     width: 900,
-    height: 700,
+    height: 900,
     minHeight: 600,
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: 15, y: 15 },
@@ -41,7 +41,8 @@ const createMainWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    backgroundColor: '#2e2e2e',
+    vibrancy: 'under-window', // For macOS blur
+    backgroundColor: 'transparent',
   });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   // mainWindow.webContents.openDevTools({ mode: 'undocked' });
@@ -53,14 +54,13 @@ const createManagerWindow = (htmlFile, width = 700, height = 500) => {
         minHeight: 400,
         titleBarStyle: 'hidden',
         trafficLightPosition: { x: 15, y: 15 },
-        parent: mainWindow,
-        modal: true,
         webPreferences: { 
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false, 
             contextIsolation: true 
         },
-        backgroundColor: '#2e2e2e',
+        vibrancy: 'under-window',
+        backgroundColor: 'transparent',
     });
     newWindow.loadFile(path.join(__dirname, htmlFile));
 };
@@ -117,10 +117,22 @@ ipcMain.on('set-theme', (event, theme) => {
 ipcMain.handle('get-theme', () => store.get('user-settings.theme', 'system'));
 ipcMain.handle('get-settings', () => store.get('user-settings'));
 ipcMain.on('save-settings', (event, settings) => store.set('user-settings', settings));
+
 ipcMain.handle('get-prompts', () => store.get('prompts'));
-ipcMain.on('save-prompts', (event, prompts) => store.set('prompts', prompts));
+ipcMain.on('save-prompts', (event, prompts) => {
+    store.set('prompts', prompts);
+    if (mainWindow) {
+        mainWindow.webContents.send('prompts-updated');
+    }
+});
+
 ipcMain.handle('get-keys', () => store.get('apiKeys'));
-ipcMain.on('save-keys', (event, keys) => store.set('apiKeys', keys));
+ipcMain.on('save-keys', (event, keys) => {
+    store.set('apiKeys', keys);
+    if (mainWindow) {
+        mainWindow.webContents.send('keys-updated');
+    }
+});
 
 // --- Model Fetching Logic ---
 ipcMain.handle('fetch-models', async (event, { provider, apiKey }) => {
@@ -194,25 +206,27 @@ ipcMain.on('process-files', (event, { files, settings }) => {
 });
 
 // --- Sorter Logic ---
-async function findSubfoldersRecursive(currentPath, subfolders, currentDepth, maxDepth) {
-    if (currentDepth >= maxDepth) return;
-    try {
-        const entries = await fs.readdir(currentPath, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(currentPath, entry.name);
-            if (entry.isDirectory()) {
-                subfolders.push(fullPath);
-                await findSubfoldersRecursive(fullPath, subfolders, currentDepth + 1, maxDepth);
-            }
-        }
-    } catch (error) { /* ignore permission errors */ }
-}
-
-ipcMain.handle('index-folder', async (event, { folderPath, maxDepth }) => {
+ipcMain.on('index-folder', async (event, { folderPath, maxDepth }) => {
     const subfolders = [];
-    await findSubfoldersRecursive(folderPath, subfolders, 0, maxDepth);
-    return subfolders;
+    const findSubfoldersRecursive = async (currentPath, currentDepth) => {
+        if (currentDepth >= maxDepth) return;
+        try {
+            const entries = await fs.readdir(currentPath, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(currentPath, entry.name);
+                if (entry.isDirectory()) {
+                    subfolders.push(fullPath);
+                    event.sender.send('folder-indexed', { path: fullPath, count: subfolders.length });
+                    await findSubfoldersRecursive(fullPath, currentDepth + 1);
+                }
+            }
+        } catch (error) { /* ignore permission errors */ }
+    };
+
+    await findSubfoldersRecursive(folderPath, 0);
+    event.sender.send('indexing-complete', { total: subfolders.length, allFolders: subfolders });
 });
+
 
 ipcMain.handle('move-file', async (event, { source, destination }) => {
     try {
@@ -232,30 +246,74 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
     const keys = store.get('apiKeys');
     const selectedPrompt = prompts.find(p => p.id === settings.selectedPrompt);
     const selectedKey = keys.find(k => k.id === settings.selectedKey);
-    if (!selectedKey || !selectedPrompt) { dialog.showErrorBox('Error', 'Please configure your API Key and Prompt first.'); return; }
+    if (!selectedKey || !selectedPrompt) {
+        dialog.showErrorBox('Error', 'Please configure your API Key and Prompt first.');
+        return;
+    }
 
-    const files = await fs.readdir(inputPath);
-    for (const file of files) {
-        const filePath = path.join(inputPath, file);
+    const allFiles = await fs.readdir(inputPath);
+    const fileQueue = [];
+    for (const file of allFiles) {
+        // Ignore hidden files
+        if (file.startsWith('.')) {
+            continue;
+        }
         try {
-            const stat = await fs.stat(filePath);
+            const stat = await fs.stat(path.join(inputPath, file));
             if (stat.isFile()) {
-                const scriptPath = path.join(__dirname, 'process-sorter.sh');
-                const args = [ filePath, JSON.stringify(folderIndex), selectedKey.key, settings.model, selectedPrompt.text, settings.provider ];
-                const child = spawn('bash', [scriptPath, ...args]);
-                let output = '';
-                child.stdout.on('data', (data) => { output += data.toString(); });
-                child.on('close', (code) => {
-                    if (code === 0) {
-                        try {
-                            const suggestions = JSON.parse(output);
-                            event.sender.send('sort-suggestion', { fileName: file, filePath: filePath, suggestions: suggestions });
-                        } catch (e) { console.error("Failed to parse sorter script output:", e, "Raw output:", output); }
-                    }
-                });
+                fileQueue.push(file);
             }
-        } catch(e) {
-            console.error(`Could not process file ${filePath}:`, e);
+        } catch (e) {
+            console.error(`Could not stat file ${file}:`, e);
         }
     }
+
+    if (fileQueue.length === 0) {
+        event.sender.send('sorting-complete');
+        return;
+    }
+
+    const processNextFile = () => {
+        const file = fileQueue.shift();
+        if (!file) {
+            event.sender.send('sorting-complete');
+            return;
+        }
+
+        const filePath = path.join(inputPath, file);
+        const scriptPath = path.join(__dirname, 'process-sorter.sh');
+        const args = [filePath, JSON.stringify(folderIndex), selectedKey.key, settings.model, selectedPrompt.text, settings.provider];
+        const child = spawn('bash', [scriptPath, ...args]);
+        let output = '';
+        let errorOutput = '';
+
+        child.stdout.on('data', (data) => { output += data.toString(); });
+        child.stderr.on('data', (data) => { errorOutput += data.toString(); });
+
+        child.on('close', (code) => {
+            let suggestions = [];
+            if (code === 0 && output) {
+                try {
+                    const aiSuggestions = JSON.parse(output);
+                    // Filter to ensure suggestions from the AI are valid folders in our index
+                    suggestions = aiSuggestions.filter(s => typeof s === 'string' && folderIndex.includes(s));
+                } catch (e) {
+                    console.error(`Failed to parse sorter script output for ${file}:`, e, "Raw output:", output);
+                }
+            } else if (code !== 0) {
+                console.error(`Sorter script failed for ${file}. Code: ${code}. Error: ${errorOutput}`);
+            }
+            
+            // If we have no valid suggestions, provide the first few folders as a fallback
+            if (suggestions.length === 0) {
+                suggestions = folderIndex.slice(0, 3);
+            }
+
+            event.sender.send('sort-suggestion', { fileName: file, filePath: filePath, suggestions: [...new Set(suggestions)].slice(0, 3) });
+            
+            processNextFile();
+        });
+    };
+
+    processNextFile();
 });
