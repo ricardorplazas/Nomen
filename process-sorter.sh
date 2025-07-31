@@ -28,11 +28,20 @@ FILE_EXTENSION="${FILE_PATH##*.}"
 FILE_CONTENT=""
 case "$FILE_EXTENSION" in
     pdf)
-        WORK_DIR=$(mktemp -d)
-        gs -o "${WORK_DIR}/p.png" -sDEVICE=png16m -r150 "$FILE_PATH" >/dev/null 2>&1
-        tesseract "${WORK_DIR}/p.png" "${WORK_DIR}/c" -l eng+deu+spa >/dev/null 2>&1
-        FILE_CONTENT=$(cat "${WORK_DIR}/c.txt")
-        rm -rf "$WORK_DIR"
+        # Attempt to extract text first to see if OCR is needed.
+        TEXT_CHECK=$(pdftotext -layout "$FILE_PATH" - | tr -d '[:space:]')
+
+        if [ ${#TEXT_CHECK} -lt 100 ]; then
+            # PDF is likely image-based, perform OCR
+            WORK_DIR=$(mktemp -d)
+            gs -o "${WORK_DIR}/p.png" -sDEVICE=png16m -r150 "$FILE_PATH" >/dev/null 2>&1
+            tesseract "${WORK_DIR}/p.png" "${WORK_DIR}/c" -l eng+deu+spa >/dev/null 2>&1
+            FILE_CONTENT=$(cat "${WORK_DIR}/c.txt")
+            rm -rf "$WORK_DIR"
+        else
+            # PDF has text, extract it directly
+            FILE_CONTENT=$(pdftotext -layout "$FILE_PATH" -)
+        fi
         ;;
     txt)
         FILE_CONTENT=$(cat "$FILE_PATH")
@@ -46,7 +55,6 @@ case "$FILE_EXTENSION" in
 esac
 
 # --- 2. CONSTRUCT THE PROMPT ---
-# Note: For OpenAI, we add a specific instruction to ensure JSON output.
 if [ "$PROVIDER" = "openai" ]; then
     JSON_INSTRUCTION="Respond with only a valid JSON array containing the top 3 folder paths."
 else
@@ -75,7 +83,6 @@ if [ "$PROVIDER" = "gemini" ]; then
     MODEL_URL="https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}"
     curl -s -o "$JSON_RESPONSE_FILE" -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "$MODEL_URL"
 elif [ "$PROVIDER" = "openai" ]; then
-    # OpenAI has a specific JSON mode which is more reliable
     JSON_PAYLOAD=$(jq -n --arg model "$MODEL_NAME" --arg prompt "$FULL_PROMPT" '{"model":$model, "response_format": { "type": "json_object" }, "messages":[{"role":"user","content":$prompt}]}')
     MODEL_URL="https://api.openai.com/v1/chat/completions"
     curl -s -o "$JSON_RESPONSE_FILE" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d "$JSON_PAYLOAD" "$MODEL_URL"
@@ -90,28 +97,20 @@ RAW_TEXT=""
 if [ "$PROVIDER" = "gemini" ]; then
     RAW_TEXT=$(jq -r '.candidates[0].content.parts[0].text' "$JSON_RESPONSE_FILE")
 elif [ "$PROVIDER" = "openai" ]; then
-    # For OpenAI's JSON mode, the content itself is a JSON string.
     RAW_TEXT=$(jq -r '.choices[0].message.content' "$JSON_RESPONSE_FILE")
 elif [ "$PROVIDER" = "anthropic" ]; then
     RAW_TEXT=$(jq -r '.content[0].text' "$JSON_RESPONSE_FILE")
 fi
 
-# Find the start of the JSON array '[' and the end ']'
 JSON_CANDIDATE=$(echo "$RAW_TEXT" | sed -n '/\[/,/\]/p')
-
-# If that fails (e.g., it's all on one line), try grep
 if [ -z "$JSON_CANDIDATE" ]; then
     JSON_CANDIDATE=$(echo "$RAW_TEXT" | grep -o '\[.*\]')
 fi
-
-# Remove markdown backticks and any newlines/carriage returns
 CLEAN_JSON=$(echo "$JSON_CANDIDATE" | sed 's/```json//g' | sed 's/```//g' | tr -d '\n\r')
 
-# Validate and output
 if jq -e . >/dev/null 2>&1 <<<"$CLEAN_JSON"; then
     echo "$CLEAN_JSON"
 else
-    # If JSON is invalid, return an empty array
     echo "[]"
 fi
 

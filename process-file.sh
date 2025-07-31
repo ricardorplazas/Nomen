@@ -41,6 +41,7 @@ WORK_DIR=$(mktemp -d)
 JSON_RESPONSE_FILE="${WORK_DIR}/api_response.json"
 FINAL_SOURCE_FILE=""
 FULL_PROMPT=""
+EXTRACTED_TEXT=""
 
 # --- 2. CREATE A WORKING COPY & HANDLE ORIGINAL ---
 # The script will now work on a copy, preserving the original file.
@@ -57,70 +58,71 @@ fi
 # --- 3. MAIN LOGIC: Differentiate between PDF and other files ---
 if [ "$FILE_EXTENSION" = "pdf" ]; then
     # --- PDF PROCESSING WORKFLOW ---
-    SEARCHABLE_PDF="${WORK_DIR}/searchable_ocr.pdf"
-    PDFA_PDF="${WORK_DIR}/${BASE_NAME}_PDFA.pdf"
-
-    # 3a. GHOSTSCRIPT: Convert PDF to images for OCR (from the copy)
-    gtimeout 120 gs -o "${WORK_DIR}/page_%03d.png" -sDEVICE=png16m -r300 "$PROCESSING_FILE_PATH"
-    if [ $? -ne 0 ] || ! ls "${WORK_DIR}/page_"*.png >/dev/null 2>&1; then
-        echo "Processing failed: Ghostscript failed to convert PDF to images." >&2
-        rm -rf "$WORK_DIR"; exit 1
-    fi
-
-    # 3b. TESSERACT: Perform OCR
-    TESSERACT_SUCCESS=false
-    for i in 1 2 3; do
-        gtimeout 120 find "$WORK_DIR" -name "*.png" | sort | tesseract stdin "${SEARCHABLE_PDF%.pdf}" -l eng+deu+spa pdf
-        if [ -s "$SEARCHABLE_PDF" ]; then TESSERACT_SUCCESS=true; break; fi
-        sleep 1
-    done
-    if [ "$TESSERACT_SUCCESS" = false ]; then
-        echo "Processing failed: Tesseract could not create a searchable PDF." >&2
-        rm -rf "$WORK_DIR"; exit 1
-    fi
-
-    # 3c. GHOSTSCRIPT: Convert to PDF/A (Optional)
-    if [ "$CONVERT_TO_PDFA" = "true" ]; then
-        gtimeout 120 gs -dPDFA=2 -dBATCH -dNOPAUSE -sColorConversionStrategy=sRGB -sDEVICE=pdfwrite -sOutputFile="$PDFA_PDF" "$SEARCHABLE_PDF"
-        if [ $? -ne 0 ] || [ ! -s "$PDFA_PDF" ]; then
-            echo "Processing failed: Ghostscript failed to create the PDF/A file." >&2
-            rm -rf "$WORK_DIR"; exit 1
+    
+    # Attempt to extract text first to see if OCR is needed.
+    TEXT_CHECK=$(pdftotext -layout "$PROCESSING_FILE_PATH" - | tr -d '[:space:]')
+    
+    # If extracted text is very short (less than 100 chars), assume it's an image-based PDF needing OCR.
+    if [ ${#TEXT_CHECK} -lt 100 ]; then
+        # PDF is likely image-based, proceed with OCR workflow
+        SEARCHABLE_PDF="${WORK_DIR}/searchable_ocr.pdf"
+        
+        gtimeout 120 gs -o "${WORK_DIR}/page_%03d.png" -sDEVICE=png16m -r300 "$PROCESSING_FILE_PATH" >/dev/null 2>&1
+        if [ $? -ne 0 ] || ! ls "${WORK_DIR}/page_"*.png >/dev/null 2>&1; then
+            echo "Processing failed: Ghostscript failed to convert PDF to images." >&2; rm -rf "$WORK_DIR"; exit 1
         fi
-        FINAL_SOURCE_FILE="$PDFA_PDF"
+
+        gtimeout 120 find "$WORK_DIR" -name "*.png" | sort | tesseract stdin "${SEARCHABLE_PDF%.pdf}" -l eng+deu+spa pdf >/dev/null 2>&1
+        if [ ! -s "$SEARCHABLE_PDF" ]; then
+            echo "Processing failed: Tesseract could not create a searchable PDF." >&2; rm -rf "$WORK_DIR"; exit 1
+        fi
+
+        if [ "$CONVERT_TO_PDFA" = "true" ]; then
+            PDFA_PDF="${WORK_DIR}/${BASE_NAME}_PDFA.pdf"
+            gtimeout 120 gs -dPDFA=2 -dBATCH -dNOPAUSE -sColorConversionStrategy=sRGB -sDEVICE=pdfwrite -sOutputFile="$PDFA_PDF" "$SEARCHABLE_PDF" >/dev/null 2>&1
+            if [ $? -eq 0 ] && [ -s "$PDFA_PDF" ]; then
+                FINAL_SOURCE_FILE="$PDFA_PDF"
+            else
+                FINAL_SOURCE_FILE="$SEARCHABLE_PDF" # Fallback on conversion failure
+            fi
+        else
+            FINAL_SOURCE_FILE="$SEARCHABLE_PDF"
+        fi
+        # Re-extract text from the new OCR'd PDF
+        EXTRACTED_TEXT=$(pdftotext -layout "$FINAL_SOURCE_FILE" -)
     else
-        FINAL_SOURCE_FILE="$SEARCHABLE_PDF"
+        # PDF has text, no OCR needed. Use the initially extracted text.
+        EXTRACTED_TEXT=$(pdftotext -layout "$PROCESSING_FILE_PATH" -) # Get text with spaces this time
+        
+        if [ "$CONVERT_TO_PDFA" = "true" ]; then
+            PDFA_PDF="${WORK_DIR}/${BASE_NAME}_PDFA.pdf"
+            gtimeout 120 gs -dPDFA=2 -dBATCH -dNOPAUSE -sColorConversionStrategy=sRGB -sDEVICE=pdfwrite -sOutputFile="$PDFA_PDF" "$PROCESSING_FILE_PATH" >/dev/null 2>&1
+            if [ $? -eq 0 ] && [ -s "$PDFA_PDF" ]; then
+                FINAL_SOURCE_FILE="$PDFA_PDF"
+            else
+                FINAL_SOURCE_FILE="$PROCESSING_FILE_PATH" # Fallback on conversion failure
+            fi
+        else
+            FINAL_SOURCE_FILE="$PROCESSING_FILE_PATH"
+        fi
     fi
 
-    # 3d. EXTRACT TEXT for prompt
-    EXTRACTED_TEXT=$(pdftotext -layout "$FINAL_SOURCE_FILE" -)
     FULL_PROMPT="${PROMPT_TEXT}
 File content:
 $EXTRACTED_TEXT"
 
 else
     # --- NON-PDF PROCESSING WORKFLOW ---
-    # The file to be renamed is the copy we made.
     FINAL_SOURCE_FILE="$PROCESSING_FILE_PATH"
-
-    # 3a. Get creation date from metadata (from the copy)
     CREATION_DATE=$(exiftool -s -s -s -d "%Y-%m-%d %H:%M:%S" -CreateDate -ModifyDate -FileModifyDate "$PROCESSING_FILE_PATH" | head -n 1)
     if [ -z "$CREATION_DATE" ]; then CREATION_DATE="Not available"; fi
 
-    # 3b. Get content using the appropriate tool (from the copy)
-    FILE_CONTENT=""
     case "$FILE_EXTENSION" in
-        txt)
-            FILE_CONTENT=$(cat "$PROCESSING_FILE_PATH")
-            ;;
-        docx|doc|pptx|ppt)
-            FILE_CONTENT=$(pandoc --from "$FILE_EXTENSION" --to plain "$PROCESSING_FILE_PATH")
-            ;;
-        *)
-            FILE_CONTENT=$(basename "$PROCESSING_FILE_PATH")
-            ;;
+        txt) FILE_CONTENT=$(cat "$PROCESSING_FILE_PATH") ;;
+        docx|doc|pptx|ppt) FILE_CONTENT=$(pandoc --from "$FILE_EXTENSION" --to plain "$PROCESSING_FILE_PATH") ;;
+        *) FILE_CONTENT=$(basename "$PROCESSING_FILE_PATH") ;;
     esac
     
-    # 3c. PREPARE PROMPT with metadata
     FULL_PROMPT="${PROMPT_TEXT}
 File creation date: ${CREATION_DATE}
 File content/name:
@@ -143,8 +145,7 @@ elif [ "$PROVIDER" = "anthropic" ]; then
 fi
 
 if [ $? -ne 0 ]; then
-    echo "Processing failed: The API call with curl failed." >&2
-    rm -rf "$WORK_DIR"; exit 1
+    echo "Processing failed: The API call with curl failed." >&2; rm -rf "$WORK_DIR"; exit 1
 fi
 
 # --- 5. PROCESS RESPONSE AND RENAME ---
