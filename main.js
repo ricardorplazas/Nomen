@@ -17,7 +17,7 @@ const commandExists = (command) => {
 };
 
 const checkDependencies = async () => {
-    const dependencies = ['gs', 'tesseract', 'pdftotext', 'jq', 'gtimeout', 'exiftool', 'pandoc'];
+    const dependencies = ['gs', 'tesseract', 'pdftotext', 'jq', 'gtimeout', 'exiftool', 'pandoc', 'pdffonts'];
     const missingDependencies = [];
     for (const dep of dependencies) {
         if (!(await commandExists(dep))) missingDependencies.push(dep);
@@ -32,7 +32,7 @@ const checkDependencies = async () => {
 const createMainWindow = () => {
   mainWindow = new BrowserWindow({
     width: 900,
-    height: 900,
+    height: 800,
     minHeight: 600,
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: 15, y: 15 },
@@ -179,9 +179,29 @@ ipcMain.handle('fetch-models', async (event, { provider, apiKey }) => {
 
 // --- File Processing Logic (Renamer) ---
 ipcMain.on('process-files', (event, { files, settings }) => {
-    const processQueue = [...files]; 
-    const processFile = (filePath) => {
-        if (!filePath) { mainWindow.webContents.send('processing-complete'); return; }
+    if (!settings.outputFolder || !settings.apiKey) {
+        dialog.showErrorBox('Missing Settings', 'Please select an Output Folder and an API Key in the settings panel.');
+        return;
+    }
+
+    const CONCURRENT_LIMIT = 3;
+    const fileQueue = [...files];
+    let activeWorkers = 0;
+
+    const runWorker = () => {
+        if (fileQueue.length === 0) {
+            if (activeWorkers === 0) {
+                event.sender.send('processing-complete');
+            }
+            return;
+        }
+
+        activeWorkers++;
+        const filePath = fileQueue.shift();
+        
+        // Send 'processing' status update
+        mainWindow.webContents.send('update-status', { path: filePath, status: 'Processing...' });
+
         const scriptPath = path.join(__dirname, 'process-file.sh');
         const args = [
             filePath, settings.outputFolder, path.join(settings.outputFolder, 'originals'),
@@ -199,10 +219,14 @@ ipcMain.on('process-files', (event, { files, settings }) => {
             } else {
                  mainWindow.webContents.send('update-status', { path: filePath, status: 'Error', message: errorMessage.trim() });
             }
-            processFile(processQueue.shift());
+            activeWorkers--;
+            runWorker();
         });
     };
-    processFile(processQueue.shift());
+
+    for (let i = 0; i < CONCURRENT_LIMIT && i < files.length; i++) {
+        runWorker();
+    }
 });
 
 // --- Sorter Logic ---
@@ -246,23 +270,18 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
     const keys = store.get('apiKeys');
     const selectedPrompt = prompts.find(p => p.id === settings.selectedPrompt);
     const selectedKey = keys.find(k => k.id === settings.selectedKey);
-    if (!selectedKey || !selectedPrompt) {
-        dialog.showErrorBox('Error', 'Please configure your API Key and Prompt first.');
+    if (!selectedKey || !selectedPrompt || !inputPath || folderIndex.length === 0) {
+        dialog.showErrorBox('Missing Settings', 'Please ensure a Target Folder is indexed, an Input Folder is selected, and an API Key and Prompt are configured.');
         return;
     }
 
     const allFiles = await fs.readdir(inputPath);
     const fileQueue = [];
     for (const file of allFiles) {
-        // Ignore hidden files
-        if (file.startsWith('.')) {
-            continue;
-        }
+        if (file.startsWith('.')) continue;
         try {
             const stat = await fs.stat(path.join(inputPath, file));
-            if (stat.isFile()) {
-                fileQueue.push(file);
-            }
+            if (stat.isFile()) fileQueue.push(file);
         } catch (e) {
             console.error(`Could not stat file ${file}:`, e);
         }
@@ -273,13 +292,19 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
         return;
     }
 
-    const processNextFile = () => {
-        const file = fileQueue.shift();
-        if (!file) {
-            event.sender.send('sorting-complete');
+    const CONCURRENT_LIMIT = 3;
+    let activeWorkers = 0;
+
+    const runWorker = () => {
+        if (fileQueue.length === 0) {
+            if (activeWorkers === 0) {
+                event.sender.send('sorting-complete');
+            }
             return;
         }
 
+        activeWorkers++;
+        const file = fileQueue.shift();
         const filePath = path.join(inputPath, file);
         const scriptPath = path.join(__dirname, 'process-sorter.sh');
         const args = [filePath, JSON.stringify(folderIndex), selectedKey.key, settings.model, selectedPrompt.text, settings.provider];
@@ -295,7 +320,6 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
             if (code === 0 && output) {
                 try {
                     const aiSuggestions = JSON.parse(output);
-                    // Filter to ensure suggestions from the AI are valid folders in our index
                     suggestions = aiSuggestions.filter(s => typeof s === 'string' && folderIndex.includes(s));
                 } catch (e) {
                     console.error(`Failed to parse sorter script output for ${file}:`, e, "Raw output:", output);
@@ -303,17 +327,19 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
             } else if (code !== 0) {
                 console.error(`Sorter script failed for ${file}. Code: ${code}. Error: ${errorOutput}`);
             }
-            
-            // If we have no valid suggestions, provide the first few folders as a fallback
+
             if (suggestions.length === 0) {
                 suggestions = folderIndex.slice(0, 3);
             }
 
             event.sender.send('sort-suggestion', { fileName: file, filePath: filePath, suggestions: [...new Set(suggestions)].slice(0, 3) });
             
-            processNextFile();
+            activeWorkers--;
+            runWorker();
         });
     };
 
-    processNextFile();
+    for (let i = 0; i < CONCURRENT_LIMIT && i < fileQueue.length; i++) {
+        runWorker();
+    }
 });

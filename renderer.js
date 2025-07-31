@@ -105,10 +105,7 @@ const startRenameProcessing = (filePaths) => {
         apiKey: selectedKey ? selectedKey.key : "", outputFolder: outputFolderInput.value,
         archiveOriginal: archiveCheckbox.checked, convertToPDFA: convertPdfaCheckbox.checked 
     };
-    if (!settings.apiKey || !settings.outputFolder) {
-        console.error('Missing Settings: Please select an API Key and an Output Folder.');
-        return;
-    }
+    
     statusViewContainer.style.display = 'flex';
     filePaths.forEach(path => {
         const fileName = path.split(/[\\/]/).pop();
