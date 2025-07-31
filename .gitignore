@@ -23,3 +23,6 @@ yarn-error.log*
 *.user
 *.suo
 out/
+
+#Build artifacts
+* .config.js
