@@ -1,0 +1,184 @@
+<!-- keys.html - The UI for the API Key Management Window -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Nomen - API Key Manager</title>
+    <style>
+        :root {
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        }
+
+        /* --- Dark Theme (Default) --- */
+        body, body[data-theme='dark'] {
+            --bg-color: #2e2e2e;
+            --sidebar-bg: rgba(30, 30, 30, 0.75);
+            --content-bg: #3c3c3c;
+            --border-color: #4a4a4a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-color: #5c9bff;
+            --control-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Light Theme --- */
+        body[data-theme='light'] {
+            --bg-color: #f0f0f0;
+            --sidebar-bg: rgba(247, 247, 247, 0.8);
+            --content-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --accent-color: #007aff;
+            --control-bg: #f0f0f0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #keys-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        #title-bar {
+            height: 40px;
+            width: 100%;
+            -webkit-app-region: drag;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        #main-wrapper {
+            display: flex;
+            flex-grow: 1;
+        }
+
+        #keys-sidebar {
+            width: 220px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #sidebar-header {
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #sidebar-header h3 { margin: 0; font-size: 1em; font-weight: 600; }
+        #new-key-btn { background: none; border: none; font-size: 1.4em; cursor: pointer; color: var(--accent-color); }
+
+        #key-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #key-list li {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9em;
+        }
+        #key-list li.active { background-color: var(--accent-color); color: white; font-weight: 500; }
+        #key-list li:hover { background-color: var(--control-bg); }
+
+        #key-editor {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background-color: var(--content-bg);
+            gap: 15px;
+        }
+        
+        .editor-group { display: flex; flex-direction: column; gap: 8px; }
+        .editor-group label { font-weight: 500; font-size: 0.9em; color: var(--text-secondary); }
+        .editor-group input, .editor-group select {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: var(--font-family);
+            background-color: var(--control-bg);
+            color: var(--text-primary);
+        }
+
+        #editor-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        #editor-footer button {
+            padding: 8px 15px;
+            border: none;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div id="keys-container">
+        <div id="title-bar"></div>
+        <div id="main-wrapper">
+            <aside id="keys-sidebar">
+                <div id="sidebar-header">
+                    <h3>API Keys</h3>
+                    <button id="new-key-btn" title="New Key">+</button>
+                </div>
+                <ul id="key-list">
+                    <!-- Keys will be dynamically added here -->
+                </ul>
+            </aside>
+
+            <main id="key-editor">
+                <div class="editor-group">
+                    <label for="key-nickname-input">Nickname</label>
+                    <input type="text" id="key-nickname-input" placeholder="e.g., Personal OpenAI Key">
+                </div>
+                <div class="editor-group">
+                    <label for="key-provider-select">Provider</label>
+                    <select id="key-provider-select">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
+                </div>
+                <div class="editor-group">
+                    <label for="key-value-input">API Key</label>
+                    <input type="password" id="key-value-input" placeholder="Enter the API key value">
+                </div>
+                <footer id="editor-footer">
+                    <button id="delete-key-btn">Delete</button>
+                    <button id="save-key-btn">Save</button>
+                </footer>
+            </main>
+        </div>
+    </div>
+    <script src="./keys-renderer.js"></script>
+</body>
+</html>

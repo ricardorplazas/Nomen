@@ -1,0 +1,216 @@
+<!-- prompts.html - The UI for the Prompts Management Window -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Nomen - Prompt Manager</title>
+    <style>
+        :root {
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        }
+
+        /* --- Dark Theme (Default) --- */
+        body, body[data-theme='dark'] {
+            --bg-color: #2e2e2e;
+            --sidebar-bg: rgba(30, 30, 30, 0.75);
+            --content-bg: #3c3c3c;
+            --border-color: #4a4a4a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-color: #5c9bff;
+            --control-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Light Theme --- */
+        body[data-theme='light'] {
+            --bg-color: #f0f0f0;
+            --sidebar-bg: rgba(247, 247, 247, 0.8);
+            --content-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --accent-color: #007aff;
+            --control-bg: #f0f0f0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #prompts-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        #title-bar {
+            height: 40px;
+            width: 100%;
+            -webkit-app-region: drag;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        #main-wrapper {
+            display: flex;
+            flex-grow: 1;
+        }
+
+        /* --- Sidebar for prompt list --- */
+        #prompts-sidebar {
+            width: 220px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #sidebar-header {
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #sidebar-header h3 {
+            margin: 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        #new-prompt-btn {
+            background: none;
+            border: none;
+            font-size: 1.4em;
+            cursor: pointer;
+            color: var(--accent-color);
+        }
+
+        #prompt-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #prompt-list li {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9em;
+        }
+
+        #prompt-list li.active {
+            background-color: var(--accent-color);
+            color: white;
+            font-weight: 500;
+        }
+        #prompt-list li:hover {
+            background-color: var(--control-bg);
+        }
+
+        /* --- Main content area for editing --- */
+        #prompt-editor {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background-color: var(--content-bg);
+        }
+
+        #prompt-title-input {
+            font-size: 1.2em;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: var(--font-family);
+            background-color: var(--control-bg);
+            color: var(--text-primary);
+        }
+
+        #prompt-textarea {
+            flex-grow: 1;
+            font-family: "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
+            font-size: 0.9em;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: none;
+            margin-bottom: 15px;
+            background-color: var(--control-bg);
+            color: var(--text-primary);
+        }
+
+        #editor-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #version-history-select {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9em;
+            background-color: var(--control-bg);
+            color: var(--text-primary);
+        }
+
+        #editor-buttons button {
+            padding: 8px 15px;
+            border: none;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div id="prompts-container">
+        <div id="title-bar"></div>
+        <div id="main-wrapper">
+            <aside id="prompts-sidebar">
+                <div id="sidebar-header">
+                    <h3>Prompts</h3>
+                    <button id="new-prompt-btn" title="New Prompt">+</button>
+                </div>
+                <ul id="prompt-list">
+                    <!-- Prompts will be dynamically added here -->
+                </ul>
+            </aside>
+
+            <main id="prompt-editor">
+                <input type="text" id="prompt-title-input" placeholder="Enter prompt title...">
+                <textarea id="prompt-textarea" placeholder="Enter your prompt text here..."></textarea>
+                <footer id="editor-footer">
+                    <select id="version-history-select">
+                        <option>Version 1</option>
+                    </select>
+                    <div id="editor-buttons">
+                        <button id="delete-prompt-btn">Delete</button>
+                        <button id="save-prompt-btn">Save</button>
+                    </div>
+                </footer>
+            </main>
+        </div>
+    </div>
+    <script src="./prompts-renderer.js"></script>
+</body>
+</html>
