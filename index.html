@@ -200,6 +200,13 @@
                 <!-- Renamer Settings -->
                 <div class="settings-view active" id="settings-renamer">
                     <div class="settings-group">
+                        <div class="archive-option-row">
+                            <input type="checkbox" id="save-in-place-checkbox">
+                            <label for="save-in-place-checkbox">Save in Same Folder</label>
+                        </div>
+                        <p class="comment">Overrides the Output Folder setting below.</p>
+                    </div>
+                    <div class="settings-group">
                         <label for="output-folder">Output Folder</label>
                         <input type="text" id="output-folder" placeholder="Select a folder" readonly>
                         <button id="choose-folder-btn">Choose...</button>

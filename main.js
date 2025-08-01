@@ -191,8 +191,12 @@ ipcMain.handle('fetch-models', async (event, { provider, apiKey }) => {
 
 // --- File Processing Logic (Renamer) ---
 ipcMain.on('process-files', (event, { files, settings }) => {
-    if (!settings.outputFolder || !settings.apiKey) {
-        dialog.showErrorBox('Missing Settings', 'Please select an Output Folder and an API Key in the settings panel.');
+    if (!settings.saveInPlace && !settings.outputFolder) {
+        dialog.showErrorBox('Missing Settings', 'Please select an Output Folder or check "Save in Same Folder".');
+        return;
+    }
+    if (!settings.apiKey) {
+        dialog.showErrorBox('Missing Settings', 'Please select an API Key in the settings panel.');
         return;
     }
 
@@ -211,12 +215,13 @@ ipcMain.on('process-files', (event, { files, settings }) => {
         activeWorkers++;
         const filePath = fileQueue.shift();
         
-        // Send 'processing' status update
         mainWindow.webContents.send('update-status', { path: filePath, status: 'Processing...' });
+
+        const outputDir = settings.saveInPlace ? path.dirname(filePath) : settings.outputFolder;
 
         const scriptPath = path.join(__dirname, 'process-file.sh');
         const args = [
-            filePath, settings.outputFolder, path.join(settings.outputFolder, 'originals'),
+            filePath, outputDir, path.join(outputDir, 'originals'),
             settings.archiveOriginal.toString(), settings.apiKey, settings.model,
             settings.prompt, settings.provider, settings.convertToPDFA.toString(),
             path.extname(filePath).substring(1)

@@ -23,9 +23,12 @@ FILE_NAME=$(basename "$FILE_PATH")
 # --- Set PATH ---
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 
-# --- 1. EXTRACT FILE CONTENT ---
+# --- 1. EXTRACT FILE CONTENT & METADATA ---
 FILE_EXTENSION="${FILE_PATH##*.}"
 FILE_CONTENT=""
+CREATION_DATE=$(exiftool -s -s -s -d "%Y-%m-%d %H:%M:%S" -CreateDate -ModifyDate -FileModifyDate "$FILE_PATH" | head -n 1)
+if [ -z "$CREATION_DATE" ]; then CREATION_DATE="Not available"; fi
+
 case "$FILE_EXTENSION" in
     pdf)
         # Attempt to extract text first to see if OCR is needed.
@@ -61,13 +64,16 @@ else
     JSON_INSTRUCTION="Respond with only the JSON array of the top 3 folder paths."
 fi
 
-FULL_PROMPT="Based on the following file name and content, which of the provided destination folders is the best match? Please provide a JSON array of the top 3 most likely folder paths from the list, in order of relevance.
+FULL_PROMPT="Based on the following file name, creation date, and content, which of the provided destination folders is the best match? Please provide a JSON array of the top 3 most likely folder paths from the list, in order of relevance.
 
 Destination folders:
 ${FOLDER_INDEX_JSON}
 
 File name:
 ${FILE_NAME}
+
+File creation date:
+${CREATION_DATE}
 
 File content:
 ${FILE_CONTENT}

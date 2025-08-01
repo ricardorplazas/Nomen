@@ -16,6 +16,7 @@ const keysBtn = document.getElementById('keys-btn');
 const promptsBtn = document.getElementById('prompts-btn');
 const chooseFolderBtn = document.getElementById('choose-folder-btn');
 const outputFolderInput = document.getElementById('output-folder');
+const saveInPlaceCheckbox = document.getElementById('save-in-place-checkbox');
 const dropZone = document.getElementById('drop-zone');
 const statusViewContainer = document.getElementById('status-view-container');
 const statusView = document.getElementById('status-view');
@@ -87,6 +88,7 @@ const saveCurrentSettings = () => {
     const settings = {
         provider: providerSelect.value, model: modelSelect.value,
         selectedKey: apiKeySelect.value, outputFolder: outputFolderInput.value,
+        saveInPlace: saveInPlaceCheckbox.checked,
         archiveOriginal: archiveCheckbox.checked, convertToPDFA: convertPdfaCheckbox.checked,
         selectedPrompt: promptSelect.value, theme: document.body.dataset.savedTheme || 'system',
         sorterMaxDepth: parseInt(sorterDepthInput.value, 10) || 5
@@ -103,6 +105,7 @@ const startRenameProcessing = (filePaths) => {
         provider: providerSelect.value, model: modelSelect.value,
         prompt: selectedPrompt ? selectedPrompt.text : "No prompt selected",
         apiKey: selectedKey ? selectedKey.key : "", outputFolder: outputFolderInput.value,
+        saveInPlace: saveInPlaceCheckbox.checked,
         archiveOriginal: archiveCheckbox.checked, convertToPDFA: convertPdfaCheckbox.checked 
     };
     
@@ -194,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         providerSelect.value = settings.provider || 'gemini';
         apiKeySelect.value = settings.selectedKey || '';
         outputFolderInput.value = settings.outputFolder || '';
+        saveInPlaceCheckbox.checked = settings.saveInPlace || false;
         archiveCheckbox.checked = settings.archiveOriginal || false;
         convertPdfaCheckbox.checked = typeof settings.convertToPDFA === 'boolean' ? settings.convertToPDFA : true;
         sorterDepthInput.value = settings.sorterMaxDepth || 5;
@@ -275,7 +279,7 @@ clearSortedBtn.addEventListener('click', () => {
     }
 });
 
-[providerSelect, modelSelect, apiKeySelect, outputFolderInput, archiveCheckbox, convertPdfaCheckbox, promptSelect, sorterDepthInput].forEach(el => {
+[providerSelect, modelSelect, apiKeySelect, outputFolderInput, saveInPlaceCheckbox, archiveCheckbox, convertPdfaCheckbox, promptSelect, sorterDepthInput].forEach(el => {
     el.addEventListener('change', saveCurrentSettings);
 });
 providerSelect.addEventListener('change', fetchAndDisplayModels);
