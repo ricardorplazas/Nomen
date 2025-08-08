@@ -1,10 +1,10 @@
-// test-indexer.js
+// indexer.js
 // A standalone script to test folder indexing performance with a depth limit.
 //
 // To run this from your terminal:
-// 1. Save this file as `test-indexer.js` in your project directory.
+// 1. Save this file as `indexer.js` in your project directory.
 // 2. Replace the placeholder path in `folderToIndexPath` with the actual path you want to test.
-// 3. Run the command: node test-indexer.js
+// 3. Run the command: node indexer.js
 
 const fs = require('fs').promises;
 const path = require('path');
