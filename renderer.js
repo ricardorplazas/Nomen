@@ -161,6 +161,7 @@ const applyTheme = (theme) => {
     const effectiveTheme = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
     document.body.dataset.theme = effectiveTheme;
     themeBtn.innerHTML = themeIcons[theme];
+    themeBtn.setAttribute('aria-label', `Theme: ${theme}`);
 };
 
 // --- AI Model Fetching ---
@@ -228,6 +229,7 @@ themeBtn.addEventListener('click', () => {
     let nextTheme = themes[(currentThemeIndex + 1) % themes.length];
     document.body.dataset.savedTheme = nextTheme;
     window.electronAPI.setTheme(nextTheme);
+    saveCurrentSettings();
 });
 chooseFolderBtn.addEventListener('click', async () => {
     const folderPath = await window.electronAPI.selectFolder();
