@@ -37,8 +37,11 @@ case "$FILE_EXTENSION" in
         if [ ${#TEXT_CHECK} -lt 100 ]; then
             # PDF is likely image-based, perform OCR
             WORK_DIR=$(mktemp -d)
-            gs -o "${WORK_DIR}/p.png" -sDEVICE=png16m -r150 "$FILE_PATH" >/dev/null 2>&1
-            tesseract "${WORK_DIR}/p.png" "${WORK_DIR}/c" -l eng+deu+spa >/dev/null 2>&1
+            gs -o "${WORK_DIR}/page_%03d.png" -sDEVICE=png16m -r150 "$FILE_PATH" >/dev/null 2>&1
+            for page_image in "${WORK_DIR}"/page_*.png; do
+                tesseract "$page_image" stdout -l eng+deu+spa >> "${WORK_DIR}/c.txt" 2>/dev/null
+                rm "$page_image"
+            done
             FILE_CONTENT=$(cat "${WORK_DIR}/c.txt")
             rm -rf "$WORK_DIR"
         else
