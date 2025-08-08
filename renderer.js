@@ -91,7 +91,10 @@ const saveCurrentSettings = () => {
         saveInPlace: saveInPlaceCheckbox.checked,
         archiveOriginal: archiveCheckbox.checked, convertToPDFA: convertPdfaCheckbox.checked,
         selectedPrompt: promptSelect.value, theme: document.body.dataset.savedTheme || 'system',
-        sorterMaxDepth: parseInt(sorterDepthInput.value, 10) || 5
+        sorterMaxDepth: (() => {
+            const depth = parseInt(sorterDepthInput.value, 10);
+            return Number.isNaN(depth) ? 5 : depth;
+        })()
     };
     window.electronAPI.saveSettings(settings);
 };
@@ -200,7 +203,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveInPlaceCheckbox.checked = settings.saveInPlace || false;
         archiveCheckbox.checked = settings.archiveOriginal || false;
         convertPdfaCheckbox.checked = typeof settings.convertToPDFA === 'boolean' ? settings.convertToPDFA : true;
-        sorterDepthInput.value = settings.sorterMaxDepth || 5;
+        sorterDepthInput.value =
+            typeof settings.sorterMaxDepth === 'number'
+                ? settings.sorterMaxDepth
+                : 5;
         document.body.dataset.savedTheme = settings.theme || 'system';
         applyTheme(document.body.dataset.savedTheme);
         if (apiKeySelect.value) {
