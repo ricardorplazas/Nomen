@@ -67,7 +67,9 @@ else
     JSON_INSTRUCTION="Respond with only the JSON array of the top 3 folder paths."
 fi
 
-FULL_PROMPT="Based on the following file name, creation date, and content, which of the provided destination folders is the best match? Please provide a JSON array of the top 3 most likely folder paths from the list, in order of relevance.
+FULL_PROMPT="${BASE_PROMPT_TEXT}
+
+Based on the following file name, creation date, and content, which of the provided destination folders is the best match? Please provide a JSON array of the top 3 most likely folder paths from the list, in order of relevance.
 
 Destination folders:
 ${FOLDER_INDEX_JSON}

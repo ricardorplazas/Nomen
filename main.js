@@ -324,7 +324,14 @@ ipcMain.on('process-sorting', async (event, { inputPath, folderIndex }) => {
         const file = fileQueue.shift();
         const filePath = path.join(inputPath, file);
         const scriptPath = path.join(__dirname, 'process-sorter.sh');
-        const args = [filePath, JSON.stringify(folderIndex), selectedKey.key, settings.model, selectedPrompt.text, settings.provider];
+        const args = [
+            filePath,
+            JSON.stringify(folderIndex),
+            selectedKey.key,
+            settings.model,
+            selectedPrompt.text.trim(),
+            settings.provider,
+        ];
         const child = spawn('bash', [scriptPath, ...args]);
         let output = '';
         let errorOutput = '';
