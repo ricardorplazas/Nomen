@@ -62,7 +62,18 @@
             padding: 10px 10px 0 20px; border-bottom: 1px solid var(--border-color);
         }
         #app-mode-nav { display: flex; gap: 10px; }
-        .nav-tab { padding: 8px 15px; cursor: pointer; border-bottom: 3px solid transparent; color: var(--text-secondary); font-weight: 600; font-size: 0.9em; transition: all 0.2s ease; }
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: color 0.2s ease, border-bottom-color 0.2s ease;
+        }
+        .nav-tab:hover, .nav-tab:focus-visible { color: var(--accent-color); }
         .nav-tab.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
         #theme-btn { background: none; border: none; cursor: pointer; padding: 4px; width: 30px; height: 30px; }
         #theme-btn svg { width: 100%; height: 100%; fill: var(--text-secondary); }
@@ -191,10 +202,10 @@
             <div id="sidebar-draggable-area"></div>
             <div id="nav-header">
                 <div id="app-mode-nav">
-                    <div class="nav-tab active" id="nav-renamer">Renamer</div>
-                    <div class="nav-tab" id="nav-sorter">Sorter</div>
+                    <button class="nav-tab active" id="nav-renamer">Renamer</button>
+                    <button class="nav-tab" id="nav-sorter">Sorter</button>
                 </div>
-                <button id="theme-btn" title="Change Theme"></button>
+                <button id="theme-btn" title="Change Theme" aria-label="Change Theme"></button>
             </div>
             <div id="sidebar-content">
                 <!-- Renamer Settings -->
