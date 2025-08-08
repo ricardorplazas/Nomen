@@ -39,6 +39,12 @@ let dragCounter = 0;
 let targetFolder = null;
 let folderIndex = [];
 
+// Prevent default drag-and-drop behavior on the entire document to avoid
+// Electron navigating away or opening files when they are dropped outside
+// of the designated drop zone.
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
+
 // --- View Switching Logic ---
 const switchView = (viewName) => {
     navRenamer.classList.toggle('active', viewName === 'renamer');
@@ -244,6 +250,7 @@ dropZone.addEventListener('click', async () => {
 });
 dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); e.stopPropagation(); dragCounter++; dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); dragCounter--; if (dragCounter === 0) dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault(); e.stopPropagation(); dragCounter = 0;
     dropZone.classList.remove('drag-over');
